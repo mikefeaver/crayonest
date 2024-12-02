@@ -1,0 +1,2 @@
+﻿route_short_name,route_long_name,route_type,service_window_id,direction,frequency,shape_id,speed
+hastings_ext,Hastings Extension,1,always,2,20,expo_ext,42.1
