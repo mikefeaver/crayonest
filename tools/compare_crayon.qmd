@@ -1,0 +1,223 @@
+---
+title: "compare_crayon"
+format: html
+editor: visual
+---
+
+## Transit Proposals
+
+Many crayons are not based on reasonable or accurate metrics for the goodness of each line or of the network as a whole. This effort is to apply r5r to a proposed transit network to see where new lines would make the most difference in terms of travel time or access to employment over the existing network or other modes.
+
+This script compares a crayon to the existing network, and shows where and how much the crayon improves access to employment.
+
+Manually copy the shapes.geojson and stops.geojson files used to generate the GTFS being assessed to the /dep/results_log/\<crayon\> folders before running this script.
+
+## Select the Crayon
+
+Choose the crayon to compare in /dep/results_log/\<crayon\>
+
+```{r}
+crayon <- "expo_hastings_ext" #"crayon" # Folder with crayon in ../dep/results_log
+
+# These should come from an attribute of the lines in shapes.geojson
+crayon_labels = c("Expo Line Extension")
+crayon_breaks = c("expo_ext")
+crayon_values = c("expo_ext" = "blue")
+
+notes <- expression(
+      "Assumes that the planned extensions travel about as fast and often as the existing lines.\nAssumes that proposed metro lines come every 6 minutes on each branch and travel at an average speed of 35 km/h.\nAssumes that the planned gondola comes every minute and travels 23.6 km/h.\nTravel times calculated for 2023-12-08 (Friday) at 2 PM.\nGTFS feed for the proposed route calculated using mrcagney/make_gtfs.\nUses 2023-09-02 TransLink GTFS feed. Map data from OpenStreetMap.\nPopulation data from the 2021 census gathered using R/cancensus.R\nJob data from the 2021 census gathered using cansim.\nPopulation and job data are reproduced and distributed on an 'as is' basis with the permission of Statistics Canada.\nTravel times calculated using r5r: Rapid Realistic Routing on Multimodal Transport Networks with R5 in R.\nContains information licensed under the Open Government Licence – British Columbia."
+      )
+
+results_folder <- "../dep/results_log/"
+```
+
+## Setup
+
+```{r}
+library(sf) # for loading shapefiles
+library(data.table)
+library(ggplot2)
+
+library(readr)
+library(tidyverse)
+
+library(grid)
+library(ggnewscale)
+library(lwgeom) # for st_perimeter (not needed for st_area)
+
+#use projected spherical geometry (on to a plane) for spatial calculations
+sf::sf_use_s2(TRUE)
+  
+# Oceans and rivers data comes from the province
+ocean <- st_read("~/Housing/Water/HydOcean_shp/HydOcean.shp")
+river <- st_read("~/Housing/Water/HydRiver_shp/HydRiver.shp")
+```
+
+## Before and After type comparisons
+
+From residences
+
+```{r}
+library(scales) # to remove scientific notation on legend numbers
+
+# Use the following files to model 2021 population and job distribution
+points <- st_read("../dep/orig_dest/pop_dotdensity/dotdensity-500-vancouver-abbotsford.shp")
+job_points <- st_read("../dep/orig_dest/job_dotdensity/jobdotdensity-500-vancouver-abbotsford.shp")
+
+# Use the following files to model growth along the line 
+#points <- st_read("../dep/orig_dest/growth/pop_growth.geojson")
+#job_points <- st_read("../dep/orig_dest/growth/job_growth.geojson")
+
+route <- st_read(paste(results_folder, crayon, "/shapes.geojson", sep = ""))
+stops <- st_read(paste(results_folder, crayon, "/stops.geojson", sep = ""))
+
+new_routes <- st_read(paste(results_folder, "/proposed/shapes.geojson", sep = ""))
+new_stops <- st_read(paste(results_folder,"/proposed/stops.geojson", sep = ""))
+
+more_routes <- st_read(paste(results_folder, crayon, "/shapes.geojson", sep = ""))
+more_stops <- st_read(paste(results_folder, crayon, "/stops.geojson", sep = ""))
+
+# Existing network
+file1 <- paste(results_folder, "existing/transit_job_accessibility.csv", sep = "")
+file2 <- paste(results_folder, crayon, "/transit_job_accessibility.csv", sep = "")
+
+network1 <- read_delim(
+  file = file1,
+  delim = ",",
+  col_types = cols(
+     id = col_character(),
+     opportunity = readr::col_factor(levels = c("people")),
+     percentile = col_integer(),
+     cutoff = col_integer(),
+     accessibility = col_double()
+    )
+  )
+network2 <- read_delim(
+  file = file2,
+  delim = ",",
+  col_types = cols(
+     id = col_character(),
+     opportunity = readr::col_factor(levels = c("people")),
+     percentile = col_integer(),
+     cutoff = col_integer(),
+     accessibility = col_double()
+    )
+  )
+
+# merge accessibility estimates
+access_sf <- points |> 
+  left_join(network1, join_by(id == id)) |>
+  left_join(network2, join_by(id == id)) |>
+  mutate(
+    accessibility.x = if_else(is.na(accessibility.x), 0, accessibility.x)
+  ) |>
+  mutate(
+    change = accessibility.y - accessibility.x
+  )
+
+xlim <- c(-123.26, -122.5) # Metro Vancouver
+ylim <- c(49.0, 49.36) # Metro Vancouver
+
+# plot
+ggplot() +
+  geom_sf(
+    data = access_sf, 
+    mapping = aes(color = change),
+    alpha = 1,
+    size = 0.5, # 2 for R2 scale, 0.5 for Metro Vancouver scale
+    shape = 16 # Solid circle
+    ) +
+  scale_color_fermenter(
+    palette = "Oranges",
+    direction = 1,
+    limits = c(0,100000),
+    n.breaks = 6,
+    na.value = "grey95",
+    labels = comma
+  ) +
+  labs(color = "Increase in\nnumber of jobs\nwithin 45 minutes") +
+  labs(title = "Increase in access to employment from building transit") +
+  labs(subtitle = "Each dot represents 500 residents, and its colour indicates increased access to jobs with the proposed routes.") +
+
+  new_scale_color() + # Allows for two+ gradient fills in the same plot
+  
+  geom_sf(data = ocean, fill = "aliceblue", color = NA) +
+  geom_sf(data = river, fill = "aliceblue", color = NA) +
+  geom_sf(
+    data = new_routes, 
+    mapping = aes(color = shape_id),
+    alpha = 0.3, # 0.1 at R2 scale, 0.3 at Metro Vancouver scale
+    linewidth = 2
+    ) +
+  scale_color_manual(
+    name = "Planned Routes",
+    labels = c("Expo Line", "Millennium Line", "Burnaby Mountain Gondola"),
+    breaks = c("Expo", "Millennium", "BMG"),
+    values = c("Expo" = "darkblue", "Millennium" = "orange", "BMG" = "purple")
+  ) +
+
+  new_scale_color() + # Allows for two+ gradient fills in the same plot
+  
+  geom_sf(
+    data = more_routes, 
+    mapping = aes(color = shape_id),
+    alpha = 0.3, # 0.1 at R2 scale, 0.3 at Metro Vancouver scale
+    linewidth = 2
+    ) +
+  scale_color_manual(
+    name = "Proposed Routes",
+    labels = crayon_labels, 
+    breaks = crayon_breaks,
+    values = crayon_values
+  ) +
+    geom_sf(
+    data = new_stops, 
+    color = "black", 
+    shape = 16, 
+    alpha = 0.8, 
+    size = 1.5
+    ) +
+  geom_sf(
+    data = more_stops, 
+    color = "black", 
+    shape = 16, 
+    alpha = 0.8, 
+    size = 1.5
+    ) +
+
+  annotation_custom(
+  grob = textGrob(
+      notes,
+      x = 0.02,
+      y = 0.04,
+      just = c("left", "top"),
+      gp = gpar(fontsize = 6, col = "grey36")
+    ), 
+    xmin = -Inf,
+    xmax = Inf,
+    ymin = -Inf,
+    ymax = Inf
+  ) +
+  
+  coord_sf(xlim = xlim, ylim = ylim) +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "white", color = NA),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+```
+
+```{r}
+ggsave(
+  paste(results_folder, crayon, "/transit_job_access_change_plot.png", sep = ""),
+  units = "in", 
+  width = 10, 
+  height = 5.8, 
+  dpi = 400
+  )
+
+write.csv(access_sf, paste(results_folder, crayon, "/transit_job_access_change.csv", sep = ""), row.names=FALSE)
+```

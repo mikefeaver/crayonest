@@ -1,0 +1,299 @@
+---
+title: "summarize_crayons"
+format: html
+editor: visual
+---
+
+## Transit Proposals
+
+Many crayons are not based on reasonable or accurate metrics for the goodness of each line or of the network as a whole. This effort is to apply r5r to a proposed transit network to see where new lines would make the most difference in terms of travel time or access to employment over the existing network or other modes.
+
+This script compares assessed crayons to each other and to the existing network, and shows where and how much each crayon improves access to employment.
+
+## Select the Crayons
+
+Choose the networks to compare in /dep/results_log/\<crayon1\>
+
+```{r}
+crayon1 <- "lions_gate" # Folder with crayon1 in ../dep/results_log
+crayon2 <- "circle" # Folder with crayon2 in ../dep/results_log
+crayon3 <- "expo_hastings_ext" # Folder with crayon3 in ../dep/results_log
+
+results_folder <- "../dep/results_log/"
+```
+
+## Setup
+
+Packages needed to run r5r and make nice maps
+
+```{r}
+library(sf) # for loading shapefiles
+library(data.table)
+library(ggplot2)
+
+library(readr)
+library(tidyverse)
+# library(VancouvR) # CoV Open Data (this is not actually used for now because I'm using downloaded geojson files for now)
+
+library(grid)
+library(ggnewscale)
+library(lwgeom) # for st_perimeter (not needed for st_area)
+
+#use projected spherical geometry (on to a plane) for spatial calculations
+sf::sf_use_s2(TRUE)
+  
+# Oceans and rivers data comes from the province
+ocean <- st_read("~/Housing/Water/HydOcean_shp/HydOcean.shp")
+river <- st_read("~/Housing/Water/HydRiver_shp/HydRiver.shp")
+```
+
+## Compare Network Accessibility
+
+```{r}
+library(scales)
+
+# Use the following files to model 2021 population and job distribution
+points <- st_read("../dep/orig_dest/pop_dotdensity/dotdensity-500-vancouver-abbotsford.shp")
+
+# Use the following files to model growth along the line 
+#points <- st_read("../dep/orig_dest/growth/pop_growth.geojson")
+
+file_existing <- paste(results_folder, "/existing/transit_job_accessibility.csv", sep = "")
+file_planned <- paste(results_folder, "/planned/transit_job_accessibility.csv", sep = "")
+file_proposed <- paste(results_folder, "/proposed/transit_job_accessibility.csv", sep = "")
+file1 <- paste(results_folder, crayon1, "/transit_job_accessibility.csv", sep = "")
+file2 <- paste(results_folder, crayon2, "/transit_job_accessibility.csv", sep = "")
+file3 <- paste(results_folder, crayon3, "/transit_job_accessibility.csv", sep = "")
+
+existing_network <- read_delim(
+  file = file_existing,
+  delim = ",",
+  col_types = cols(
+     id = col_character(),
+     opportunity = readr::col_factor(levels = c("people")),
+     percentile = col_integer(),
+     cutoff = col_integer(),
+     accessibility = col_double()
+    )
+  ) |>
+  select(
+    -c(
+      opportunity,
+      percentile,
+      cutoff
+    )
+  ) |>
+  mutate(
+    network = 'Existing Network',
+    additional_length = 0
+    )
+
+planned_network <- read_delim(
+  file = file_planned,
+  delim = ",",
+  col_types = cols(
+     id = col_character(),
+     opportunity = readr::col_factor(levels = c("people")),
+     percentile = col_integer(),
+     cutoff = col_integer(),
+     accessibility = col_double()
+    )
+  ) |>
+  select(
+    -c(
+      opportunity,
+      percentile,
+      cutoff
+    )
+  ) |>
+  mutate(
+    network = 'Planned Lines',
+    additional_length = 0
+    )
+
+proposed_network <- read_delim(
+  file = file_proposed,
+  delim = ",",
+  col_types = cols(
+     id = col_character(),
+     opportunity = readr::col_factor(levels = c("people")),
+     percentile = col_integer(),
+     cutoff = col_integer(),
+     accessibility = col_double()
+    )
+  ) |>
+  select(
+    -c(
+      opportunity,
+      percentile,
+      cutoff
+    )
+  ) |>
+  mutate(
+    network = 'Proposed Lines',
+    additional_length = 0
+    )
+
+network1 <- read_delim(
+  file = file1,
+  delim = ",",
+  col_types = cols(
+     id = col_character(),
+     opportunity = readr::col_factor(levels = c("people")),
+     percentile = col_integer(),
+     cutoff = col_integer(),
+     accessibility = col_double()
+    )
+  ) |>
+  select(
+    -c(
+      opportunity,
+      percentile,
+      cutoff
+    )
+  ) |>
+  mutate(
+    network = paste("Proposed + ", crayon1, sep = ""),
+    additional_length = 0
+    )
+
+network2 <- read_delim(
+  file = file2,
+  delim = ",",
+  col_types = cols(
+     id = col_character(),
+     opportunity = readr::col_factor(levels = c("people")),
+     percentile = col_integer(),
+     cutoff = col_integer(),
+     accessibility = col_double()
+    )
+  ) |>
+  select(
+    -c(
+      opportunity,
+      percentile,
+      cutoff
+    )
+  ) |>
+  mutate(
+    network = paste("Proposed + ", crayon2, sep = ""),
+    additional_length = 0
+    )
+
+network3 <- read_delim(
+  file = file3,
+  delim = ",",
+  col_types = cols(
+     id = col_character(),
+     opportunity = readr::col_factor(levels = c("people")),
+     percentile = col_integer(),
+     cutoff = col_integer(),
+     accessibility = col_double()
+    )
+  ) |>
+  select(
+    -c(
+      opportunity,
+      percentile,
+      cutoff
+    )
+  ) |>
+#  mutate(row_name = row_number()),
+  mutate(
+    network = paste("Proposed + ", crayon3, sep = ""),
+    additional_length = 0
+  )
+
+# merge accessibility estimates
+access_comparison <- 
+  rbind(
+    existing_network, 
+    planned_network, 
+    proposed_network, 
+    network1, 
+    network2, 
+    network3
+    ) |>
+  group_by(network) |>
+  arrange(accessibility) |>
+  mutate(
+    row_name = row_number()
+  )
+
+access_sum <- access_comparison |> 
+  group_by(network) |>
+  summarize(
+    average_accessibility = mean(accessibility, na.rm = TRUE)
+  )|>
+  ungroup()
+
+ggplot(
+  data = access_comparison,
+  mapping = aes(x = row_name, y = accessibility)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 600000),
+    labels = comma
+  ) +
+  labs(
+    title = "Accessibility",
+    x = "Residential locations (each representing 500 people)", 
+    y = "Number of jobs within 45 minutes",
+  ) +
+  geom_point( 
+    aes(color = network),
+    size = 0.3,
+    shape = 16,
+    alpha = 0.5
+  )
+
+write.csv(
+  access_comparison, 
+  paste(results_folder, "transit_job_access_comparison.csv", sep = ""),
+  row.names=FALSE)
+
+ggsave(
+  paste(
+    results_folder, "/transit_job_access_comparison_plot.png", sep = ""
+    ),
+  units = "in", 
+  width = 10, 
+  height = 5.8, 
+  dpi = 400
+  )
+
+ggplot(
+  data = access_sum,
+  mapping = aes(
+    x = reorder(network, average_accessibility), 
+    y = average_accessibility)
+  ) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Average Accessibility",
+    subtitle = "From residences in Metro Vancouver and Abbotsford",
+    x = "Transit Network", 
+    y = "Average number of jobs within 45 minutes",
+  ) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+
+# Save job accessibility comparison
+ggsave(
+  paste(
+    results_folder, "/transit_job_accessibility_network_comparison.png", sep = ""
+    ),
+  units = "in", 
+  width = 10, 
+  height = 5.8, 
+  dpi = 400
+  )
+
+write.csv(
+  access_sum, 
+  paste(
+    results_folder, "transit_job_accessibility_network_comparison.csv", sep = ""
+    ),
+  row.names=FALSE)
+```
+
+## 
