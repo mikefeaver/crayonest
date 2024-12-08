@@ -1,0 +1,58 @@
+---
+title: "transit-stops_file"
+format: html
+editor: visual
+---
+
+## Transit Proposals - Make Stops File Automatically
+
+This utility creates a stops file from a stops shapefile so that it can be used by make_gtfs.
+
+## Select the Crayons
+
+Choose the shapefile to extract from in /dep/crayon/\<crayon\>
+
+```{r}
+crayon <- "poco_ext"
+crayon_folder <- "../dep/crayons/"
+```
+
+## Setup
+
+```{r}
+library(sf) # for loading shapefiles
+library(data.table)
+library(readr)
+library(tidyverse)
+```
+
+## Make Stops File
+
+```{r}
+input_file_path <- paste(crayon_folder, crayon, "/stops.geojson", sep = "")
+output_file_path <- paste(crayon_folder, crayon, "/stops.csv", sep = "")
+
+stops <- st_read(input_file_path)
+
+stops_table <- stops |>
+  filter(!st_is_empty(geometry)) |>
+  mutate(
+    stop_code = 50000 + row_number(),
+    stop_id = 5000 + row_number(),
+    stop_lat = st_coordinates(geometry)[,2],
+    stop_lon = st_coordinates(geometry)[,1],
+    parent_station = "",
+    stop_desc = "",
+    stop_name = stop_name,
+    location_type = 1,
+    zone_id = "ZN A"
+  ) |>
+  select(
+    -c(
+      Direction
+    )
+  ) |>
+  st_drop_geometry()
+
+write_csv(stops_table, path = output_file_path)
+```
