@@ -10,11 +10,9 @@ Many crayons are not based on reasonable or accurate metrics for the goodness of
 
 This script compares alternative crayons, like two potential future networks, to each other and shows where each crayon is better for access to employment than the other crayon.
 
-Manually copy the shapes.geojson and stops.geojson files used to generate the GTFS being assessed to the /dep/results_log/\<crayon#\> folders before running this script.
-
 ## Select the Crayons
 
-Choose the networks to compare in /dep/results_log/\<crayon_name1\>
+Choose the networks to compare as /dep/crayons/\<crayon1\> and /dep/crayons/\<crayon2\>
 
 ```{r}
 crayon1 <- "lions_gate" #"crayon1" # Folder with crayon1 in ../dep/results_log
@@ -29,7 +27,7 @@ crayon2_values = c("Circle" = "purple") # Names of the lines matching shape_id i
 
 notes <- expression("Assumes that the proposed Surrey-Langley and UBCX extensions and Burnaby Mountain Gondola are built.\nAssumes that the Circle Line comes every 5 minutes and travels 35 km/h.\nAssumes that the 'Express' lines come every 10 minutes and travel 60 km/h.\nTravel times calculated for 2023-12-08 (Friday) at 2 PM.\nGTFS feed for the proposed routes calculated using mrcagney/make_gtfs.\nUses 2023-09-02 TransLink GTFS feed. Map data from OpenStreetMap.\nPopulation data from the 2021 census gathered using R/cancensus.R\nJob data from the 2021 census gathered using cansim.\nPopulation and job data are reproduced and distributed on an 'as is' basis with the permission of Statistics Canada.\nTravel times calculated using r5r: Rapid Realistic Routing on Multimodal Transport Networks with R5 in R.\nContains information licensed under the Open Government Licence – British Columbia.")
 
-results_folder <- "../dep/results_log/"
+crayons_folder <- "../dep/crayons/"
 ```
 
 ## Setup
@@ -63,13 +61,13 @@ library(scales) # to remove scientific notation on legend numbers
 
 points <- st_read("../dep/orig_dest/pop_dotdensity/dotdensity-500-vancouver-abbotsford.shp")
 job_points <- st_read("../dep/orig_dest/job_dotdensity/jobdotdensity-500-vancouver-abbotsford.shp")
-route1 <- st_read(paste(results_folder, crayon1, "/shapes.geojson", sep = ""))
-route2 <- st_read(paste(results_folder, crayon2, "/shapes.geojson", sep = ""))
-stops1 <- st_read(paste(results_folder, crayon1, "/stops.geojson", sep = ""))
-stops2 <- st_read(paste(results_folder, crayon2, "/stops.geojson", sep = ""))
+route1 <- st_read(paste(crayons_folder, crayon1, "/shapes.geojson", sep = ""))
+route2 <- st_read(paste(crayons_folder, crayon2, "/shapes.geojson", sep = ""))
+stops1 <- st_read(paste(crayons_folder, crayon1, "/stops.geojson", sep = ""))
+stops2 <- st_read(paste(crayons_folder, crayon2, "/stops.geojson", sep = ""))
 
-file1 <- paste(results_folder, crayon1, "/transit_job_accessibility.csv", sep = "")
-file2 <- paste(results_folder, crayon2, "/transit_job_accessibility.csv", sep = "")
+file1 <- paste(crayons_folder, crayon1, "/results/transit_job_accessibility.csv", sep = "")
+file2 <- paste(crayons_folder, crayon2, "/results/transit_job_accessibility.csv", sep = "")
 
 network1 <- read_delim(
   file = file1,
@@ -201,12 +199,12 @@ ggplot() +
 
 ```{r}
 ggsave(
-  paste(results_folder, "compare-", crayon1, "-", crayon2, "/transit_job_access_comparison_plot.png", sep = ""),
+  paste(crayons_folder, "compare-", crayon1, "-", crayon2, "/transit_job_access_comparison_plot.png", sep = ""),
   units = "in", 
   width = 10, 
   height = 5.8, 
   dpi = 400
   )
 
-write.csv(access_sf, paste(results_folder, "compare-", crayon1, "-", crayon2, "/transit_job_access_comparison.csv", sep = ""), row.names=FALSE)
+write.csv(access_sf, paste(crayons_folder, "compare-", crayon1, "-", crayon2, "/transit_job_access_comparison.csv", sep = ""), row.names=FALSE)
 ```

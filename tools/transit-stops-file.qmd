@@ -13,7 +13,7 @@ This utility creates a stops file from a stops shapefile so that it can be used 
 Choose the shapefile to extract from in /dep/crayon/\<crayon\>
 
 ```{r}
-crayon <- "expo_hastings_ext"
+crayon <- "poco_ext"
 crayon_folder <- "../dep/crayons/"
 ```
 

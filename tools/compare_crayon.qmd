@@ -10,16 +10,14 @@ Many crayons are not based on reasonable or accurate metrics for the goodness of
 
 This script compares a crayon to the existing network, and shows where and how much the crayon improves access to employment.
 
-Manually copy the shapes.geojson and stops.geojson files used to generate the GTFS being assessed to the /dep/results_log/\<crayon\> folders before running this script.
-
 ## Select the Crayon
 
-Choose the crayon to compare in /dep/results_log/\<crayon\>
+Choose the crayon to compare in /dep/crayons/\<crayon\>
 
 ```{r}
 crayon <- "expo_hastings_ext" #"crayon" # Folder with crayon in ../dep/results_log
 
-# These should come from an attribute of the lines in shapes.geojson
+# These should come from an attribute of the lines in shapes.geojson (but they don't)
 crayon_labels = c("Expo Line Extension")
 crayon_breaks = c("expo_ext")
 crayon_values = c("expo_ext" = "blue")
@@ -28,7 +26,7 @@ notes <- expression(
       "Assumes that the planned extensions travel about as fast and often as the existing lines.\nAssumes that proposed metro lines come every 6 minutes on each branch and travel at an average speed of 35 km/h.\nAssumes that the planned gondola comes every minute and travels 23.6 km/h.\nTravel times calculated for 2023-12-08 (Friday) at 2 PM.\nGTFS feed for the proposed route calculated using mrcagney/make_gtfs.\nUses 2023-09-02 TransLink GTFS feed. Map data from OpenStreetMap.\nPopulation data from the 2021 census gathered using R/cancensus.R\nJob data from the 2021 census gathered using cansim.\nPopulation and job data are reproduced and distributed on an 'as is' basis with the permission of Statistics Canada.\nTravel times calculated using r5r: Rapid Realistic Routing on Multimodal Transport Networks with R5 in R.\nContains information licensed under the Open Government Licence – British Columbia."
       )
 
-results_folder <- "../dep/results_log/"
+crayons_folder <- "../dep/crayons/"
 ```
 
 ## Setup
@@ -57,6 +55,8 @@ river <- st_read("~/Housing/Water/HydRiver_shp/HydRiver.shp")
 
 From residences
 
+Existing vs. Proposed
+
 ```{r}
 library(scales) # to remove scientific notation on legend numbers
 
@@ -68,18 +68,18 @@ job_points <- st_read("../dep/orig_dest/job_dotdensity/jobdotdensity-500-vancouv
 #points <- st_read("../dep/orig_dest/growth/pop_growth.geojson")
 #job_points <- st_read("../dep/orig_dest/growth/job_growth.geojson")
 
-route <- st_read(paste(results_folder, crayon, "/shapes.geojson", sep = ""))
-stops <- st_read(paste(results_folder, crayon, "/stops.geojson", sep = ""))
+route <- st_read(paste(crayons_folder, "/existing/shapes.geojson", sep = ""))
+stops <- st_read(paste(crayons_folder, "/existing/stops.geojson", sep = ""))
 
-new_routes <- st_read(paste(results_folder, "/proposed/shapes.geojson", sep = ""))
-new_stops <- st_read(paste(results_folder,"/proposed/stops.geojson", sep = ""))
+new_routes <- st_read(paste(crayons_folder, "/proposed/shapes.geojson", sep = ""))
+new_stops <- st_read(paste(crayons_folder,"/proposed/stops.geojson", sep = ""))
 
-more_routes <- st_read(paste(results_folder, crayon, "/shapes.geojson", sep = ""))
-more_stops <- st_read(paste(results_folder, crayon, "/stops.geojson", sep = ""))
+more_routes <- st_read(paste(crayons_folder, crayon, "/shapes.geojson", sep = ""))
+more_stops <- st_read(paste(crayons_folder, crayon, "/stops.geojson", sep = ""))
 
 # Existing network
-file1 <- paste(results_folder, "existing/transit_job_accessibility.csv", sep = "")
-file2 <- paste(results_folder, crayon, "/transit_job_accessibility.csv", sep = "")
+file1 <- paste(crayons_folder, "/existing/results/transit_job_accessibility.csv", sep = "")
+file2 <- paste(crayons_folder, crayon, "/results/transit_job_accessibility.csv", sep = "")
 
 network1 <- read_delim(
   file = file1,
@@ -212,12 +212,12 @@ ggplot() +
 
 ```{r}
 ggsave(
-  paste(results_folder, crayon, "/transit_job_access_change_plot.png", sep = ""),
+  paste(crayons_folder, crayon, "/results/transit_job_access_change_plot.png", sep = ""),
   units = "in", 
   width = 10, 
   height = 5.8, 
   dpi = 400
   )
 
-write.csv(access_sf, paste(results_folder, crayon, "/transit_job_access_change.csv", sep = ""), row.names=FALSE)
+write.csv(access_sf, paste(crayons_folder, crayon, "/results/transit_job_access_change.csv", sep = ""), row.names=FALSE)
 ```

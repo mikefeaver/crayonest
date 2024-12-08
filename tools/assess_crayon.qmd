@@ -23,8 +23,9 @@ Puts the output files in a new folder in /dep/results_log/\<crayon_name\> to mak
 ## Name the crayon
 
 ```{r}
-crayon_name <- "my_new_crayon"
-results_folder <- "../dep/results_log/"
+crayon_name <- "poco_ext" #"my_new_crayon"
+crayons_folder <- "../dep/crayons/"
+# results_folder <- "../dep/results_log/"
 ```
 
 ## Allocate Memory to Java
@@ -163,7 +164,7 @@ ggplot() +
 
 # Save job accessibility map
 ggsave(
-  paste(results_folder, crayon_name, "/transit_job_accessibility_map.png", sep = ""),
+  paste(crayons_folder, crayon_name, "/results/transit_job_accessibility_map.png", sep = ""),
   units = "in", 
   width = 10, 
   height = 5.8, 
@@ -189,15 +190,14 @@ ggplot(
 
 # Save job accessibility xy scatter
 ggsave(
-  paste(results_folder, crayon_name, "/transit_job_accessibility_plot.png", sep = ""),
+  paste(crayons_folder, crayon_name, "/results/transit_job_accessibility_plot.png", sep = ""),
   units = "in", 
   width = 10, 
   height = 5.8, 
   dpi = 400
   )
 
-
-write_csv(access, path = paste(results_folder, crayon_name, "/transit_job_accessibility.csv", sep = ""))
+write_csv(access, path = paste(crayons_folder, crayon_name, "/results/transit_job_accessibility.csv", sep = ""))
 ```
 
 ## Reallocate Memory
