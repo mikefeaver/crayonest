@@ -10,7 +10,7 @@ The following describes the process for creating, assessing, and comparing a cra
     - Note that frequency is in trains/buses per hour
   d. meta.csv
   e. service_windows.csv
-2. Edit the shapes and stops files in QGIS or some other editor to define the lines and stops.
+2. Edit the shapes and stops files in QGIS or some other editor to define the lines and stops and edit the lines in frequencies.csv.
   - make_gtfs probably won't accept your geojson file if you create it from scratch. Copy the existing files, then edit them (or try your luck).
   - Create as many new lines as you like.
   - Give each line a unique shape_id (Change the shape_id parameter for each line in the shapes.geojson file to the name of the line).
@@ -18,12 +18,14 @@ The following describes the process for creating, assessing, and comparing a cra
     o Stops have to be within a few metres of the line on the right side (the side matters only where lines travel in one direction, normally stops go on both sides).
     o Be careful at transfer stations or where lines cross not to create extra stops.
     o Stops have to be on both sides of the line for the stop to be registered as a stop in both directions.
+  - Add a line in frequencies.csv for each shape_id in shapes.geojson.
+  - Optionally, also edit speed_zones.geojson to define speed limits (useful for when a line has different speeds on different segments).
 3. Run transit-stops-file.qmd to create stops.csv in the crayon folder (or create it manually).
   - This script grabs the coordinates of the stops and assigns an ID to each as needed by make_gtfs.
 4. Run make_gtfs(MRCagney/make_gtfs).
   - Note that your folder names may differ.
   a. In Windows, open a Terminal in make_gtfs_project (Open the folder in Windows Explorer, right click on empty space and select Open in Terminal)
-  b. In the Terminal (Windows PowerShell), type: .\mike_gtfs\Scripts\Activate.ps1 to run python
+  b. In the Terminal (Windows PowerShell), type: .\mike_gtfs\Scripts\Activate.ps1 to run python (note your path may be different)
   c. In the Terminal (mike_gtfs), type: python -m make_gtfs "C:\<this_crayon>" "C:\<this_crayon-gtfs>"
   d. C:\<this_crayon-gtfs> is a folder that will be created by make_gtfs that will contain the gtfs files. Keep the quotation marks exactly as shown in the previous line.
   e. In the Terminal (mike_gtfs), type: deactivate
